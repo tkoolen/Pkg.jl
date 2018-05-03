@@ -113,7 +113,7 @@ vstring(ctx::Context, a::VerInfo) =
     string((a.ver == nothing && a.hash != nothing) ? "[$(string(a.hash)[1:16])]" : "",
            a.ver != nothing ? "v$(a.ver)" : "",
            a.path != nothing ? " [$(pathrepr(ctx, a.path))]" : "",
-           a.repo != nothing ? " #$(revstring(a.repo.rev))" : "",
+           a.repo != nothing ? " #$(revstring(a.repo.rev)) [$(a.repo.url)]" : "",
            a.pinned == true ? " ⚲" : "",
            )
 
@@ -134,8 +134,10 @@ end
 
 function print_diff(io::IO, ctx::Context, diff::Vector{DiffEntry})
     same = all(x.old == x.new for x in diff)
+    some_packages_not_downloaded = false
     for x in diff
-        warnings = String[]
+        package_downloaded = Base.locate_package(Base.PkgId(x.uuid, x.name)) !== nothing
+        package_downloaded || (some_packages_not_downloaded = true)
         if x.old != nothing && x.new != nothing
             if x.old ≈ x.new
                 verb = ' '
@@ -150,10 +152,6 @@ function print_diff(io::IO, ctx::Context, diff::Vector{DiffEntry})
                     verb = '~'
                 else
                     verb = '?'
-                    msg = x.old.hash == x.new.hash ?
-                        "hashes match but versions don't: $(x.old.ver) ≠ $(x.new.ver)" :
-                        "versions match but hashes don't: $(x.old.hash) ≠ $(x.new.hash)"
-                    push!(warnings, msg)
                 end
                 vstr = (x.old.ver == x.new.ver && x.old.pinned == x.new.pinned && x.old.repo == x.new.repo) ?
                       vstring(ctx, x.new) :
@@ -170,8 +168,16 @@ function print_diff(io::IO, ctx::Context, diff::Vector{DiffEntry})
             vstr = "[unknown]"
         end
         v = same ? "" : " $verb"
+        if verb != '-' && !package_downloaded
+            printstyled(io, "→", color=:red)
+        else
+            print(io, " ")
+        end
         printstyled(io, " [$(string(x.uuid)[1:8])]"; color = color_dark)
         printstyled(io, "$v $(x.name) $vstr\n"; color = colors[verb])
+    end
+    if some_packages_not_downloaded
+        @warn "Some packages (indicated with a red arrow) are not downloaded, use `instantiate` to instantiate the current environment"
     end
 end
 # TODO: Use the Context stream

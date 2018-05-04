@@ -473,4 +473,17 @@ function precompile(ctx::Context)
     return nothing
 end
 
+intstantiate() = instantiate(Context())
+function instantiate(ctx::Context)
+    pkgs = PackageSpec[]
+    for (pkg_name, pkg_info) in ctx.env.manifest
+        for info in pkg_info
+            # Cannot instantiate a path
+            pkg = PackageSpec(pkg_name, UUID(info["uuid"]))
+            haskey(info, "path") && continue
+            @show info["uuid"]
+        end
+    end
+end
+
 end # module

@@ -47,7 +47,6 @@ const test         = API.test
 const gc           = API.gc
 const init         = API.init
 const build        = API.build
-const installed    = API.installed
 const pin          = API.pin
 const free         = API.free
 const checkout     = API.checkout

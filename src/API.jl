@@ -239,8 +239,9 @@ function test(ctx::Context, pkgs::Vector{PackageSpec}; coverage=false, kwargs...
     return
 end
 
-
-function installed(mode::PackageMode=PKGMODE_MANIFEST)
+# TODO: This returns a name => version Dict which is not good
+# snice for PKGMODE_MANIFEST since there might be duplicate names
+function __installed(mode::PackageMode=PKGMODE_MANIFEST)
     diffs = Display.status(Context(), mode, #=use_as_api=# true)
     version_status = Dict{String, Union{VersionNumber,Nothing}}()
     diffs == nothing && return version_status

@@ -1,7 +1,7 @@
 module REPLTests
 
 using Pkg
-import Pkg.Types.CommandError
+import Pkg.Types.PkgError
 using UUIDs
 using Test
 import LibGit2
@@ -24,8 +24,8 @@ end
 
 
 @testset "generate init args" begin
-    @test_throws CommandError pkg"generate"
-    @test_throws CommandError pkg"init Beep"
+    @test_throws PkgError pkg"generate"
+    @test_throws PkgError pkg"init Beep"
 end
 
 mktempdir() do project_path
@@ -98,7 +98,7 @@ temp_pkg_dir() do project_path; cd(project_path) do; mktempdir() do tmp_pkg_path
     @eval import $(Symbol(pkg2))
     @test Pkg.installed()[pkg2] == v"0.1.0"
     Pkg.REPLMode.pkgstr("free $pkg2")
-    @test_throws CommandError Pkg.REPLMode.pkgstr("free $pkg2")
+    @test_throws PkgError Pkg.REPLMode.pkgstr("free $pkg2")
     Pkg.test("UnregisteredWithProject")
 
     write(joinpath(p2, "Project.toml"), """
@@ -297,7 +297,7 @@ temp_pkg_dir() do project_path; cd(project_path) do
             pkg"build"
             @eval using BigProject
             pkg"build BigProject"
-            @test_throws CommandError pkg"add BigProject"
+            @test_throws PkgError pkg"add BigProject"
             pkg"test SubModule"
             pkg"test SubModule2"
             pkg"test BigProject"
@@ -417,8 +417,8 @@ end
     pkg = Pkg.REPLMode.parse_package(path; add_or_develop=true)
     @test (pkg.repo.url == path)
     # errors
-    @test_throws CommandError Pkg.REPLMode.parse_package(url)
-    @test_throws CommandError Pkg.REPLMode.parse_package(path)
+    @test_throws PkgError Pkg.REPLMode.parse_package(url)
+    @test_throws PkgError Pkg.REPLMode.parse_package(path)
 end
 
 end # module

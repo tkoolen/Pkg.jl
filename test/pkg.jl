@@ -236,7 +236,7 @@ temp_pkg_dir() do project_path
                 try
                     Pkg.setprotocol!("notarealprotocol")
                     # Pkg.develop is broken, update to use when fixed
-                    @test_throws CommandError pkg"develop Example"
+                    @test_throws PkgError pkg"develop Example"
                     Pkg.setprotocol!()
                     pkg"develop Example"
                     @test isinstalled(TEST_PKG)
@@ -254,8 +254,8 @@ temp_pkg_dir() do project_path
 
     @testset "adding nonexisting packages" begin
         nonexisting_pkg = randstring(14)
-        @test_throws CommandError Pkg.add(nonexisting_pkg)
-        @test_throws CommandError Pkg.up(nonexisting_pkg)
+        @test_throws PkgError Pkg.add(nonexisting_pkg)
+        @test_throws PkgError Pkg.up(nonexisting_pkg)
     end
 
     Pkg.rm(TEST_PKG.name)
@@ -276,7 +276,7 @@ temp_pkg_dir() do project_path
     end
 
     @testset "add julia" begin
-        @test_throws CommandError Pkg.add("julia")
+        @test_throws PkgError Pkg.add("julia")
     end
 
     @testset "up in Project without manifest" begin
@@ -298,7 +298,7 @@ temp_pkg_dir() do project_path
                 cd("FailBuildPkg")
                 with_current_env() do
                     write_build(pwd(), "error()")
-                    @test_throws CommandError Pkg.build()
+                    @test_throws PkgError Pkg.build()
                 end
             end
         end
@@ -377,9 +377,9 @@ end
 temp_pkg_dir() do project_path
     @testset "invalid repo url" begin
         cd(project_path) do
-            @test_throws CommandError Pkg.add("https://github.com")
+            @test_throws PkgError Pkg.add("https://github.com")
             Pkg.generate("FooBar")
-            @test_throws CommandError Pkg.add("./Foobar")
+            @test_throws PkgError Pkg.add("./Foobar")
         end
     end
 end
@@ -407,7 +407,7 @@ temp_pkg_dir() do project_path
             LibGit2.clone("https://github.com/JuliaLang/Example.jl", package_path)
             Pkg.add(package_path)
             rm(joinpath(package_path, ".git"); force=true, recursive=true)
-            @test_throws CommandError Pkg.up()
+            @test_throws PkgError Pkg.up()
         end
     end
 end

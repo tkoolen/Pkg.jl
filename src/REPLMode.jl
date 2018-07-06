@@ -85,9 +85,9 @@ struct Option
         if kind in (OPT_PROJECT, OPT_MANIFEST, OPT_MAJOR,
                     OPT_MINOR, OPT_PATCH, OPT_FIXED) &&
                 argument !== nothing
-            cmderror("the `$val` option does not take an argument")
+            pkgerror("the `$val` option does not take an argument")
         elseif kind in (OPT_ENV,) && argument == nothing
-            cmderror("the `$val` option requires an argument")
+            pkgerror("the `$val` option requires an argument")
         end
         new(kind, val, argument)
     end
@@ -110,9 +110,9 @@ const opts = Dict(
 
 function parse_option(word::AbstractString)::Option
     m = match(r"^(?: -([a-z]) | --([a-z]{2,})(?:\s*=\s*(\S*))? )$"ix, word)
-    m == nothing && cmderror("invalid option: ", repr(word))
+    m == nothing && pkgerror("invalid option: ", repr(word))
     k = m.captures[1] != nothing ? m.captures[1] : m.captures[2]
-    haskey(opts, k) || cmderror("invalid option: ", repr(word))
+    haskey(opts, k) || pkgerror("invalid option: ", repr(word))
     return Option(opts[k], String(k), m.captures[3] == nothing ? nothing : String(m.captures[3]))
 end
 
@@ -143,7 +143,7 @@ function parse_package(word::AbstractString; add_or_develop=false)::PackageSpec
         # Guess it is a url then
         return PackageSpec(Types.GitRepo(word))
     else
-        cmderror("`$word` cannot be parsed as a package")
+        pkgerror("`$word` cannot be parsed as a package")
     end
 end
 
@@ -234,7 +234,7 @@ function tokenize!(words::Vector{<:AbstractString})::Vector{Token}
         if word[1] == '-' && length(word) > 1
             push!(tokens, parse_option(word))
         else
-            haskey(cmds, word) || cmderror("invalid command: ", repr(word))
+            haskey(cmds, word) || pkgerror("invalid command: ", repr(word))
             cmdkind = cmds[word]
             push!(tokens, Command(cmdkind, word))
             # If help / preview and not in help mode we want to eat another cmd
@@ -246,7 +246,7 @@ function tokenize!(words::Vector{<:AbstractString})::Vector{Token}
         end
     end
     if isempty(tokens) || !(tokens[end] isa Command)
-        cmderror("no package command given")
+        pkgerror("no package command given")
     end
     # Now parse the arguments / options to the command
     while !isempty(words)
@@ -281,7 +281,7 @@ function do_cmd(repl::REPL.AbstractREPL, input::String; do_rethrow=false)
         if do_rethrow
             rethrow(err)
         end
-        if err isa CommandError || err isa ResolverError
+        if err isa PkgError || err isa ResolverError
             Base.display_error(repl.t.err_stream, ErrorException(sprint(showerror, err)), Ptr{Nothing}[])
         else
             Base.display_error(repl.t.err_stream, err, Base.catch_backtrace())
@@ -301,10 +301,10 @@ function do_cmd!(tokens::Vector{Token}, repl)
             if token.kind == OPT_ENV
                 env_opt = Base.parse_env(token.argument)
             else
-                cmderror("unrecognized command option: `$token`")
+                pkgerror("unrecognized command option: `$token`")
             end
         else
-            cmderror("misplaced token: ", token)
+            pkgerror("misplaced token: ", token)
         end
     end
     cmd.kind == CMD_ACTIVATE && return Base.invokelatest(do_activate!, tokens)
@@ -312,7 +312,7 @@ function do_cmd!(tokens::Vector{Token}, repl)
     ctx = Context(env = EnvCache(env_opt))
     if cmd.kind == CMD_PREVIEW
         ctx.preview = true
-        isempty(tokens) && cmderror("expected a command to preview")
+        isempty(tokens) && pkgerror("expected a command to preview")
         cmd = popfirst!(tokens)
     end
     # Using invokelatest to hide the functions from inference.
@@ -334,7 +334,7 @@ function do_cmd!(tokens::Vector{Token}, repl)
     cmd.kind == CMD_RESOLVE     ? Base.invokelatest(       do_resolve!, ctx, tokens) :
     cmd.kind == CMD_PRECOMPILE  ? Base.invokelatest(    do_precompile!, ctx, tokens) :
     cmd.kind == CMD_INSTANTIATE ? Base.invokelatest(   do_instantiate!, ctx, tokens) :
-        cmderror("`$cmd` command not yet implemented")
+        pkgerror("`$cmd` command not yet implemented")
     return
 end
 
@@ -586,7 +586,7 @@ function do_help!(
                 push!(help_md.content, md"---")
                 push!(help_md.content, helps[token.kind].content)
             else
-                cmderror("Sorry, I don't have any help for the `$(token.val)` command.")
+                pkgerror("Sorry, I don't have any help for the `$(token.val)` command.")
             end
         else
             error("invalid usage of help command")
@@ -605,17 +605,17 @@ function do_rm!(ctx::Context, tokens::Vector{Token})
             push!(pkgs, parse_package(token))
             pkgs[end].mode = mode
         elseif token isa VersionRange
-            cmderror("`rm` does not take version specs")
+            pkgerror("`rm` does not take version specs")
         elseif token isa Option
             if token.kind in (OPT_PROJECT, OPT_MANIFEST)
                 mode = PackageMode(token.kind)
             else
-                cmderror("invalid option for `rm`: $token")
+                pkgerror("invalid option for `rm`: $token")
             end
         end
     end
     isempty(pkgs) &&
-        cmderror("`rm` – list packages to remove")
+        pkgerror("`rm` – list packages to remove")
     API.rm(ctx, pkgs)
 end
 
@@ -624,7 +624,7 @@ function do_add_or_develop!(ctx::Context, tokens::Vector{Token}, cmd::CommandKin
     mode = cmd == CMD_ADD ? :add : :develop
     # tokens: package names and/or uuids, optionally followed by version specs
     isempty(tokens) &&
-        cmderror("`$mode` – list packages to $mode")
+        pkgerror("`$mode` – list packages to $mode")
     pkgs = PackageSpec[]
     prev_token_was_package = false
     while !isempty(tokens)
@@ -636,11 +636,11 @@ function do_add_or_develop!(ctx::Context, tokens::Vector{Token}, cmd::CommandKin
             parsed_package = true
         elseif token isa VersionRange
             prev_token_was_package ||
-                cmderror("package name/uuid must precede version spec `@$token`")
+                pkgerror("package name/uuid must precede version spec `@$token`")
             pkgs[end].version = VersionSpec(token)
         elseif token isa Rev
             prev_token_was_package ||
-                cmderror("package name/uuid must precede rev spec `#$(token.rev)`")
+                pkgerror("package name/uuid must precede rev spec `#$(token.rev)`")
             # WE did not get the repo from the
             pkg = pkgs[end]
             if pkg.repo == nothing
@@ -649,7 +649,7 @@ function do_add_or_develop!(ctx::Context, tokens::Vector{Token}, cmd::CommandKin
                 pkgs[end].repo.rev = token.rev
             end
         elseif token isa Option
-            cmderror("`$mode` doesn't take options: $token")
+            pkgerror("`$mode` doesn't take options: $token")
         end
         prev_token_was_package = parsed_package
     end
@@ -674,7 +674,7 @@ function do_up!(ctx::Context, tokens::Vector{Token})
             parsed_package = true
         elseif token isa VersionRange
             prev_token_was_package ||
-                cmderror("package name/uuid must precede version spec `@$token`")
+                pkgerror("package name/uuid must precede version spec `@$token`")
             pkgs[end].version = VersionSpec(token)
         elseif token isa Option
             if token.kind in (OPT_PROJECT, OPT_MANIFEST)
@@ -682,7 +682,7 @@ function do_up!(ctx::Context, tokens::Vector{Token})
             elseif token.kind in (OPT_MAJOR, OPT_MINOR, OPT_PATCH, OPT_FIXED)
                 level = UpgradeLevel(token.kind)
             else
-                cmderror("invalid option for `up`: $(token)")
+                pkgerror("invalid option for `up`: $(token)")
             end
         end
         prev_token_was_package = parsed_package
@@ -701,13 +701,13 @@ function do_pin!(ctx::Context, tokens::Vector{Token})
             parsed_package = true
         elseif token isa VersionRange
             prev_token_was_package ||
-                cmderror("package name/uuid must precede version spec `@$token`")
+                pkgerror("package name/uuid must precede version spec `@$token`")
             if token.lower != token.upper
-                cmderror("pinning a package requires a single version, not a versionrange")
+                pkgerror("pinning a package requires a single version, not a versionrange")
             end
             pkgs[end].version = VersionSpec(token)
         else
-            cmderror("free only takes a list of packages ")
+            pkgerror("free only takes a list of packages ")
         end
         prev_token_was_package = parsed_package
     end
@@ -721,7 +721,7 @@ function do_free!(ctx::Context, tokens::Vector{Token})
         if token isa String
             push!(pkgs, parse_package(token))
         else
-            cmderror("free only takes a list of packages")
+            pkgerror("free only takes a list of packages")
         end
     end
     API.free(ctx, pkgs)
@@ -735,10 +735,10 @@ function do_status!(ctx::Context, tokens::Vector{Token})
             if token.kind in (OPT_PROJECT, OPT_MANIFEST)
                 mode = PackageMode(token.kind)
             else
-                cmderror("invalid option for `status`: $(token)")
+                pkgerror("invalid option for `status`: $(token)")
             end
         else
-            cmderror("`status` does not take arguments")
+            pkgerror("`status` does not take arguments")
         end
     end
     Display.status(ctx, mode)
@@ -758,18 +758,18 @@ function do_test!(ctx::Context, tokens::Vector{Token})
             if token.kind == OPT_COVERAGE
                 coverage = true
             else
-                cmderror("invalid option for `test`: $token")
+                pkgerror("invalid option for `test`: $token")
             end
         else
             # TODO: Better error message
-            cmderror("invalid usage for `test`")
+            pkgerror("invalid usage for `test`")
         end
     end
     API.test(ctx, pkgs; coverage = coverage)
 end
 
 function do_gc!(ctx::Context, tokens::Vector{Token})
-    !isempty(tokens) && cmderror("`gc` does not take any arguments")
+    !isempty(tokens) && pkgerror("`gc` does not take any arguments")
     API.gc(ctx)
 end
 
@@ -780,7 +780,7 @@ function do_build!(ctx::Context, tokens::Vector{Token})
         if token isa String
             push!(pkgs, parse_package(token))
         else
-            cmderror("`build` only takes a list of packages")
+            pkgerror("`build` only takes a list of packages")
         end
     end
     API.build(ctx, pkgs)
@@ -788,13 +788,13 @@ end
 
 function do_init!(ctx::Context, tokens::Vector{Token})
     if !isempty(tokens)
-        cmderror("`init` does currently not take any arguments")
+        pkgerror("`init` does currently not take any arguments")
     end
     API.init(ctx)
 end
 
 function do_generate!(ctx::Context, tokens::Vector{Token})
-    isempty(tokens) && cmderror("`generate` requires a project name as an argument")
+    isempty(tokens) && pkgerror("`generate` requires a project name as an argument")
     local pkg
     while !isempty(tokens)
         token = popfirst!(tokens)
@@ -802,7 +802,7 @@ function do_generate!(ctx::Context, tokens::Vector{Token})
             pkg = token
             break # TODO: error message?
         else
-            cmderror("`generate` takes a name of the project to create")
+            pkgerror("`generate` takes a name of the project to create")
         end
     end
     API.generate(ctx, pkg)
@@ -810,7 +810,7 @@ end
 
 function do_precompile!(ctx::Context, tokens::Vector{Token})
     if !isempty(tokens)
-        cmderror("`precompile` does not take any arguments")
+        pkgerror("`precompile` does not take any arguments")
     end
     API.precompile(ctx)
 end
@@ -824,17 +824,17 @@ function do_instantiate!(ctx::Context, tokens::Vector{Token})
             elseif token.kind == OPT_PROJECT
             manifest = false
             else
-                cmderror("invalid option for `instantiate`: $(token)")
+                pkgerror("invalid option for `instantiate`: $(token)")
             end
         else
-            cmderror("invalid argument for `instantiate` :$(token)")
+            pkgerror("invalid argument for `instantiate` :$(token)")
         end
     end
     API.instantiate(ctx; manifest=manifest)
 end
 
 function do_resolve!(ctx::Context, tokens::Vector{Token})
-    !isempty(tokens) && cmderror("`resolve` does not take any arguments")
+    !isempty(tokens) && pkgerror("`resolve` does not take any arguments")
     API.resolve(ctx)
 end
 
@@ -844,7 +844,7 @@ function do_activate!(tokens::Vector{Token})
     else
         token = popfirst!(tokens)
         if !isempty(tokens) || !(token isa String)
-            cmderror("`activate` takes an optional path to the env to activate")
+            pkgerror("`activate` takes an optional path to the env to activate")
         end
         return API.activate(abspath(token))
     end

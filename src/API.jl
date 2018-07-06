@@ -28,7 +28,7 @@ function add_or_develop(ctx::Context, pkgs::Vector{PackageSpec}; mode::Symbol, k
     # if julia is passed as a package the solver gets tricked;
     # this catches the error early on
     any(pkg->(pkg.name == "julia"), pkgs) &&
-        cmderror("Trying to $mode julia as a package")
+        pkgerror("Trying to $mode julia as a package")
 
     ctx.preview && preview_info()
     if !UPDATED_REGISTRY_THIS_SESSION[]
@@ -45,7 +45,7 @@ function add_or_develop(ctx::Context, pkgs::Vector{PackageSpec}; mode::Symbol, k
     ensure_resolved(ctx.env, pkgs, registry=true)
 
     any(pkg -> Types.collides_with_project(ctx.env, pkg), pkgs) &&
-        cmderror("Cannot $mode package with the same name or uuid as the project")
+        pkgerror("Cannot $mode package with the same name or uuid as the project")
 
     Operations.add_or_develop(ctx, pkgs; new_git=new_git)
     ctx.preview && preview_info()
@@ -205,7 +205,7 @@ function free(ctx::Context, pkgs::Vector{PackageSpec}; kwargs...)
     for pkg in pkgs
         info = manifest_info(ctx.env, pkg.uuid)
         if !get(info, "pinned", false) && !(pkg.uuid in uuids_in_registry)
-            cmderror("cannot free an unpinned package that does not exist in a registry")
+            pkgerror("cannot free an unpinned package that does not exist in a registry")
         end
     end
     Operations.free(ctx, pkgs)
@@ -225,7 +225,7 @@ function test(ctx::Context, pkgs::Vector{PackageSpec}; coverage=false, kwargs...
     ctx.preview && preview_info()
     if isempty(pkgs)
         # TODO: Allow this?
-        ctx.env.pkg == nothing && cmderror("trying to test unnamed project")
+        ctx.env.pkg == nothing && pkgerror("trying to test unnamed project")
         push!(pkgs, ctx.env.pkg)
     end
     project_resolve!(ctx.env, pkgs)
@@ -470,7 +470,7 @@ function precompile(ctx::Context)
         paths = Base.find_all_in_cache_path(pkg)
         sourcepath = Base.locate_package(pkg)
         if sourcepath == nothing
-            cmderror("couldn't find path to $(pkg.name) when trying to precompilie project")
+            pkgerror("couldn't find path to $(pkg.name) when trying to precompilie project")
         end
         found_matching_precompile = false
         for path_to_try in paths::Vector{String}
@@ -531,7 +531,7 @@ function instantiate(ctx::Context; manifest::Union{Bool, Nothing}=nothing, kwarg
         return
     end
     if !isfile(ctx.env.manifest_file) && manifest == true
-        cmderror("manifest at $(ctx.env.manifest) does not exist")
+        pkgerror("manifest at $(ctx.env.manifest) does not exist")
     end
     update_registry(ctx)
     urls = Dict{}

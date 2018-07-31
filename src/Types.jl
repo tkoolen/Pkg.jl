@@ -480,7 +480,7 @@ end
 
 casesensitive_isdir(dir::String) = isdir_windows_workaround(dir) && dir in readdir(joinpath(dir, ".."))
 
-function handle_repos_develop!(ctx::Context, pkgs::AbstractVector{PackageSpec})
+function handle_repos_develop!(ctx::Context, pkgs::AbstractVector{PackageSpec}, devdir::String)
     Base.shred!(LibGit2.CachedCredentials()) do creds
         env = ctx.env
         new_uuids = UUID[]
@@ -492,7 +492,15 @@ function handle_repos_develop!(ctx::Context, pkgs::AbstractVector{PackageSpec})
 
             if isdir_windows_workaround(pkg.repo.url)
                 # Developing a local package, just point `pkg.path` to it
-                pkg.path = abspath(pkg.repo.url)
+                if isabspath(pkg.repo.url)
+                    # absolute paths should stay absolute
+                    pkg.path = pkg.repo.url
+                else
+                    # Relative paths are given relative pwd() so we
+                    # translate that to be relative the project instead.
+                    # `realpath` is needed to expand symlinks before taking the relative path.
+                    pkg.path = relpath(realpath(abspath(pkg.repo.url)), realpath(dirname(ctx.env.project_file)))
+                end
                 folder_already_downloaded = true
                 project_path = pkg.repo.url
                 parse_package!(ctx, pkg, project_path)
@@ -546,7 +554,7 @@ function handle_repos_develop!(ctx::Context, pkgs::AbstractVector{PackageSpec})
                 end
 
                 parse_package!(ctx, pkg, project_path)
-                dev_pkg_path = joinpath(Pkg.devdir(), pkg.name)
+                dev_pkg_path = joinpath(devdir, pkg.name)
                 if isdir(dev_pkg_path)
                     if !isfile(joinpath(dev_pkg_path, "src", pkg.name * ".jl"))
                         cmderror("Path `$(dev_pkg_path)` exists but it does not contain `src/$(pkg.name).jl")
@@ -558,7 +566,9 @@ function handle_repos_develop!(ctx::Context, pkgs::AbstractVector{PackageSpec})
                     mv(project_path, dev_pkg_path; force=true)
                     push!(new_uuids, pkg.uuid)
                 end
-                pkg.path = dev_pkg_path
+                # Save the path as relative if the location is inside the project
+                # (e.g. from `dev --local`), otherwise put in the absolute path.
+                pkg.path = Pkg.Operations.relative_project_path_if_in_project(ctx, dev_pkg_path)
             end
             @assert pkg.path != nothing
         end

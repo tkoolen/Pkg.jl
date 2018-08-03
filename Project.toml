@@ -1,8 +1,7 @@
-desc = "The next-generation Julia package manager."
+name = "Pkg"
 keywords = ["package", "management"]
 license = "MIT"
-name = "Pkg"
-uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+desc = "The next-generation Julia package manager."
 
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
@@ -16,6 +15,3 @@ UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
-
-[targets]
-test = ["Test"]

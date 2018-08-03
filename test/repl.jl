@@ -333,7 +333,7 @@ end
 
 # Autocompletions
 temp_pkg_dir() do project_path; cd(project_path) do
-    Pkg.Types.registries()
+    Pkg.Types.collect_registries()
     pkg"activate ."
     c, r = test_complete("add Exam")
     @test "Example" in c

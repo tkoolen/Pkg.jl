@@ -17,7 +17,7 @@ const UPDATED_REGISTRY_THIS_SESSION = Ref(false)
 
 export PackageMode, PKGMODE_MANIFEST, PKGMODE_PROJECT
 export UpgradeLevel, UPLEVEL_MAJOR, UPLEVEL_MINOR, UPLEVEL_PATCH, UPLEVEL_FIXED
-export PackageSpec
+export PackageSpec, RegistrySpec
 
 # load snapshotted dependencies
 include("../ext/TOML/src/TOML.jl")
@@ -31,6 +31,7 @@ include("GraphType.jl")
 include("Resolve.jl")
 include("Operations.jl")
 include("API.jl")
+include("Registry.jl")
 include("REPLMode.jl")
 
 import .Types: UPLEVEL_MAJOR, UPLEVEL_MINOR, UPLEVEL_PATCH, UPLEVEL_FIXED
